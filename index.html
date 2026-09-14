@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метеостанция RPi</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
+        .card { background: #1e1e1e; padding: 24px; border-radius: 16px; max-width: 380px; margin: 40px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; }
+        .val { font-size: 28px; font-weight: 600; margin: 12px 0; }
+        .label { color: #aaa; font-size: 14px; }
+        .btn { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin: 6px; font-weight: bold; }
+        .on { background: #2ecc71; color: #000; }
+        .off { background: #e74c3c; color: #fff; }
+        #status { margin-top: 16px; color: #888; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🌡️ Raspberry Pi Sensor</h2>
+        <div class="val"><span class="label">Температура:</span> <span id="temp">--</span> °C</div>
+        <div class="val"><span class="label">Влажность:</span> <span id="hum">--</span> %</div>
+        <div class="val"><span class="label">Давление:</span> <span id="press">--</span> мм рт. ст.</div>
+        
+        <button class="btn on" onclick="sendCmd('ON')">▶ Включить</button>
+        <button class="btn off" onclick="sendCmd('OFF')">⏹ Выключить</button>
+        <p id="status">🔄 Подключение к брокеру...</p>
+    </div>
+
+    <script>
+        // ⚠️ ЗАМЕНИТЕ НА СВОЙ ПРЕФИКС (точно как в Python-скрипте!)
+        const PREFIX = "my_pi_gh_7x9q";
+        const TOPIC_DATA = `${PREFIX}/sensor/data`;
+        const TOPIC_CTRL = `${PREFIX}/sensor/control`;
+
+        // WSS обязателен для GitHub Pages (HTTPS)
+        const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+
+        client.on("connect", () => {
+            document.getElementById("status").textContent = "✅ Онлайн. Ожидание данных...";
+            client.subscribe(TOPIC_DATA);
+        });
+
+        client.on("message", (topic, payload) => {
+            if (topic === TOPIC_DATA) {
+                const d = JSON.parse(payload.toString());
+                document.getElementById("temp").textContent = d.temp;
+                document.getElementById("hum").textContent = d.hum;
+                document.getElementById("press").textContent = d.press;
+                document.getElementById("status").textContent = "📡 Данные обновлены";
+            }
+        });
+
+        client.on("error", () => {
+            document.getElementById("status").textContent = "❌ Ошибка подключения";
+        });
+
+        function sendCmd(cmd) {
+            if (client.connected) {
+                client.publish(TOPIC_CTRL, cmd);
+                document.getElementById("status").textContent = `📤 Отправлено: ${cmd}`;
+            }
+        }
+    </script>
+</body>
+</html>
